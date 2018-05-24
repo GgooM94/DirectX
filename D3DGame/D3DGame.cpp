@@ -10,7 +10,7 @@ VOID Render();
 
 HINSTANCE g_hInst;
 HWND hWndMain;
-LPCTSTR lpszClass = TEXT("D3D Game");
+LPCTSTR lpszClass = TEXT("D3D Game, GgooM94");
 
 LPDIRECT3D9 g_pD3D = NULL;					// Direct3D 객체
 LPDIRECT3DDEVICE9 g_pd3dDevice = NULL;		// 랜더링 장치(비디오 카드)
@@ -30,12 +30,12 @@ struct CUSTOMVERTEX
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdParam, int nCmdShow) {
 	HWND hWnd;
-	MSG Message;
+	MSG msg;
 	g_hInst = hInstance;
 
 	WNDCLASSEX WndClass = { sizeof(WNDCLASSEX), CS_CLASSDC, MsgProc, 0L, 0L, GetModuleHandle(NULL), NULL,NULL,NULL,NULL, lpszClass, NULL };
 	RegisterClassEx(&WndClass);
-	hWnd = CreateWindow(lpszClass, TEXT("D3D Game Program"), WS_OVERLAPPEDWINDOW, 100, 100, 300, 300, GetDesktopWindow(), NULL, WndClass.hInstance, NULL);
+	hWnd = CreateWindow(lpszClass, TEXT("D3D Game Program"), WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, GetDesktopWindow(), NULL, WndClass.hInstance, NULL);
 
 
 	// Direct3D 초기화에 성공하고, 버텍스 버퍼 생성에 성공하면 진행, 실패하면 종료한다.
@@ -46,11 +46,19 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmd
 		UpdateWindow(hWnd);
 
 		// 메시지 루프 시작하기
-		while (GetMessage(&Message, NULL, 0, 0))
-		{
-			TranslateMessage(&Message);
-			DispatchMessage(&Message);
+		ZeroMemory(&msg, sizeof(msg));
+		while (msg.message != WM_QUIT) {
+			// 메시지가 있으면 가져 온다.
+			if (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE)) {
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
+			else {
+				// 메시지가 없을 때는 항상 Render() 호출
+				Render();
+			}
 		}
+
 	}
 
 	UnregisterClass(lpszClass, WndClass.hInstance);
@@ -117,16 +125,25 @@ HRESULT InitD3D(HWND hWnd) {
 HRESULT InitGeometry() {
 	// 삼각형을 그리기 위하여 3 점에 대한 임시 배열을 만든다.
 	CUSTOMVERTEX vertices[] = {
-		{ 0.0f, 100.0f, 0.0f, 0xffff0000, },		// 버텍스의 위치와 색상
-		{100.0f, -100.0f, 0.0f, 0xff00ffff, },
-		{-100.0f, -100.0f, 0.0f, 0xff00ff00, },
+		// 버텍스의 위치와 색상
+		{ -200.0f, 0.0f, 0.0f, 0xff00ff00, },		// x축 라인을 위한 버텍스
+		{ 200.0f, 0.0f, 0.0f, 0xff00ff00, },
+		{ 0.0f, 0.0f, -200.0f, 0xffffff00, },		// z축 라인을 위한 버텍스
+		{ 0.0f, 0.0f, 200.0f, 0xffffff00, },
+		{ 0.0f, -200.0f, 0.0f, 0xffff0000, },		// y축 라인을 위한 버텍스
+		{ 0.0f, 200.0f, 0.0f, 0xffff0000, },
+
+		{ 0.0f, 50.0f, 0.0f, 0xffff0000, },			// 삼각형의 첫 번째 버텍스
+		{ -50.0f, 0.0f, 0.0f, 0xffff0000, },		// 삼각형의 두 번째 버텍스
+		{ 50.0f, 0.0f, 0.0f, 0xffff0000, },			// 삼각형의 세 번째 버텍스
+
 
 		// 0xffff0000 : 0x	ff (투명도)	00 (Red)	ff (Green)	ff (Blue)
 	};
 
 	// 버텍스 버퍼를 생성한다. 
 	// 각 버텍스의 포맷은 D3DFVF_CUSTOMVERTEX 라는 것도 전달
-	if (FAILED(g_pd3dDevice->CreateVertexBuffer(3 * sizeof(CUSTOMVERTEX), 0, D3DFVF_CUSTOMVERTEX, D3DPOOL_DEFAULT, &g_pVB, NULL))) {
+	if (FAILED(g_pd3dDevice->CreateVertexBuffer(9 * sizeof(CUSTOMVERTEX), 0, D3DFVF_CUSTOMVERTEX, D3DPOOL_DEFAULT, &g_pVB, NULL))) {
 		return E_FAIL;
 	}
 
@@ -163,7 +180,7 @@ VOID CleanUP() {
 //-------------------------------------------------------
 VOID SetupViewProjection() {
 	//// 뷰 변환 설정
-	D3DXVECTOR3 vEyePt(0.0f, 3.0f, -300.0f);		// 카메라의 위치
+	D3DXVECTOR3 vEyePt(100.0f, 250.0f, -400.0f);		// 카메라의 위치
 	D3DXVECTOR3 vLookatPt(0.0f, 0.0f, 0.0f);		// 바라보는 지점
 	D3DXVECTOR3 vUpVec(0.0f, 1.0f, 0.0f);			// 업벡터 설정
 	D3DXMATRIXA16 matView;							// 뷰변환용 매트릭스
@@ -176,7 +193,7 @@ VOID SetupViewProjection() {
 	//// 프로젝션 변환 설정
 	D3DXMATRIXA16 matProj;							// 프로젝션용 매트릭스
 	// 프로젝션 매트릭스 설정
-	D3DXMatrixPerspectiveFovLH(&matProj, D3DX_PI / 4, 1.0f, 1.0f, 700.0f);
+	D3DXMatrixPerspectiveFovLH(&matProj, D3DX_PI / 4, 1.0f, 1.0f, 1000.0f);
 	//Direct3D 장치로 프로젝션 매트릭스 전달
 	g_pd3dDevice->SetTransform(D3DTS_PROJECTION, &matProj);
 }
@@ -210,16 +227,56 @@ VOID Render() {
 	// 화면 그리기 시작
 	if (SUCCEEDED(g_pd3dDevice->BeginScene())) {
 		//// 버텍스 출력 부분
-		// 1. 버텍스 버퍼 지정
-		g_pd3dDevice->SetStreamSource(0, g_pVB, 0, sizeof(CUSTOMVERTEX));
 
-		// 2. 버텍스 포멧 지정
-		g_pd3dDevice->SetFVF(D3DFVF_CUSTOMVERTEX);
+		g_pd3dDevice->SetStreamSource(0, g_pVB, 0, sizeof(CUSTOMVERTEX));		// 1. 버텍스 버퍼 지정
+		g_pd3dDevice->SetFVF(D3DFVF_CUSTOMVERTEX);								// 2. 버텍스 포멧 지정
 
-		// 3. 버텍스를 이용하여 그릴 도형 지정
-		g_pd3dDevice->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 1);
+		D3DXMATRIXA16 matWorld;		//월드 변환용 매트릭스 선언
+																// 3. 버텍스를 이용하여 그릴 도형 지정
+		for (float x = -200; x <= 200; x += 20) {				// z 축에 평행한 라인을 여러 개 그리기
+			D3DXMatrixTranslation(&matWorld, x, 0.0, 0.0);		// x 축에 따라 위치 이동 매트릭스
+			g_pd3dDevice->SetTransform(D3DTS_WORLD, &matWorld);	// 변환 매트릭스 적용
+			g_pd3dDevice->DrawPrimitive(D3DPT_LINELIST, 2, 1);	// z 축 라인 그리기
+		}
+		
+		for (float z = -200; z <= 200; z += 20) {				// x 축에 평행한 라인을 여러개 그리기
+			D3DXMatrixTranslation(&matWorld, 0.0, 0.0, z);		// z 축에 따라 위치 이동 매트릭스
+			g_pd3dDevice->SetTransform(D3DTS_WORLD, &matWorld);	// 변환 매트릭스 적용
+			g_pd3dDevice->DrawPrimitive(D3DPT_LINELIST, 0, 1);	// x 축 라인 그리기
+		}
 
-		//화면 그리기 끝
+		D3DXMatrixIdentity(&matWorld);							// 매트릭스를 단위 행렬로 리셋
+		g_pd3dDevice->SetTransform(D3DTS_WORLD, &matWorld);		//변환 매트릭스 적용
+		g_pd3dDevice->DrawPrimitive(D3DPT_LINELIST, 4, 1);		// y 축 라인 그리기
+
+		// 변환이 적용되지 않은 상태에서 삼각형 그리기
+		g_pd3dDevice->DrawPrimitive(D3DPT_TRIANGLELIST, 6, 1);	// x 축에 따라 위치 이동 매트릭스
+
+		D3DXMatrixTranslation(&matWorld, 100.0f, 0.0f, 0.0f);	// x 축으로 100 만큼 이동, 매트릭스
+
+		// <이동후 회전 매트릭스> = <회전 매트릭스> x <이동 매트릭스>
+		// 함수사용 방법에 기반한 표현이므로 먼저 계산되는 매트릭스가 우측에 위치한다.
+
+		// 매트릭스 변수 추가
+		D3DXMATRIXA16 matWorld2;
+		// matWorld2를 y 축을 중심으로 -45도 회전하는 매트릭스로 만들기
+		D3DXMatrixRotationY(&matWorld2, -45.0f*(D3DX_PI / 180.0f));
+		
+		// matWorld2를 이동 후 회전을 하는 매트릭스로 만들어주는 곱하기
+		D3DXMatrixMultiply(&matWorld, &matWorld2, &matWorld);
+		
+		// matWorld2를 x 축 방향으로 2배 확대하는 매트릭스로 만들기
+		D3DXMatrixScaling(&matWorld2, 2.0f, 1.0f, 1.0f);
+
+		//matWorld에 확대 기능까지 추가히가 위한 곱하기
+		D3DXMatrixMultiply(&matWorld, &matWorld2, &matWorld);
+		
+		//복합 변환이 적용된 최종 매트릭스 matWorld를 장치로 전달
+		g_pd3dDevice->SetTransform(D3DTS_WORLD, &matWorld);		// 변환 매트릭스 전달	
+		g_pd3dDevice->DrawPrimitive(D3DPT_TRIANGLELIST, 6, 1);	// 삼각형 그리기
+		
+
+		// 화면 그리기 끝
 		g_pd3dDevice->EndScene();
 	}
 
