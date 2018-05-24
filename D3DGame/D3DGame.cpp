@@ -5,6 +5,7 @@ LRESULT CALLBACK MsgProc(HWND, UINT, WPARAM, LPARAM);
 HRESULT InitD3D(HWND hWnd);
 HRESULT InitGeometry();
 VOID CleanUP();
+VOID SetupViewProjection();
 VOID Render();
 
 HINSTANCE g_hInst;
@@ -155,6 +156,32 @@ VOID CleanUP() {
 		g_pD3D->Release();			// D3D 객체 해제
 }
 
+
+//-------------------------------------------------------
+//	이름 : SetupViewProjection()
+//	기능 : 뷰 변환과 프로젝션 변환을 설정한다.
+//-------------------------------------------------------
+VOID SetupViewProjection() {
+	//// 뷰 변환 설정
+	D3DXVECTOR3 vEyePt(0.0f, 3.0f, -300.0f);		// 카메라의 위치
+	D3DXVECTOR3 vLookatPt(0.0f, 0.0f, 0.0f);		// 바라보는 지점
+	D3DXVECTOR3 vUpVec(0.0f, 1.0f, 0.0f);			// 업벡터 설정
+	D3DXMATRIXA16 matView;							// 뷰변환용 매트릭스
+
+	// 뷰 매트릭스 설정
+	D3DXMatrixLookAtLH(&matView, &vEyePt, &vLookatPt, &vUpVec);
+	// Direct3D 장치에 뷰 매트릭스 전달
+	g_pd3dDevice->SetTransform(D3DTS_VIEW, &matView);
+
+	//// 프로젝션 변환 설정
+	D3DXMATRIXA16 matProj;							// 프로젝션용 매트릭스
+	// 프로젝션 매트릭스 설정
+	D3DXMatrixPerspectiveFovLH(&matProj, D3DX_PI / 4, 1.0f, 1.0f, 700.0f);
+	//Direct3D 장치로 프로젝션 매트릭스 전달
+	g_pd3dDevice->SetTransform(D3DTS_PROJECTION, &matProj);
+}
+
+
 //-------------------------------------------------------
 //	이름 : Render()
 //	기능 : 화면을 그린다.
@@ -168,7 +195,16 @@ VOID Render() {
 	if (NULL == g_pd3dDevice)		// 장치 객체가 생성되지 않았으면 리턴
 		return;
 
-	// 백버퍼를 지정된 색상으로 지운다. (여기에는 청색으로 지움)
+	// 뷰 및 프로젝션 변환 설정
+	SetupViewProjection();
+
+	// 삼각형의 앞/뒤 변을 모두 랜더링하도록 컬링 기능을 끈다.
+	g_pd3dDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+	// 조명을 끈다. (조명에 의한 색상이 아니고, 버텍스 자체의 색상을 사용하도록)
+	g_pd3dDevice->SetRenderState(D3DRS_LIGHTING, FALSE);
+
+	// 백버퍼를 지정된 색상으로 지운다. (여기에는 검은색으로 지움)
 	g_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
 
 	// 화면 그리기 시작
